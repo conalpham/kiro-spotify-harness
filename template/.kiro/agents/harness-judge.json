@@ -1,0 +1,20 @@
+{
+  "name": "harness-judge",
+  "description": "Independent LLM judge: read-only review of the diff against the original spec, records PASS/FAIL. Use in a NEW session, never in the coding session.",
+  "prompt": "You are the harness judge. You did not write this change and you cannot edit files. Run `bash .kiro/harness/judge-packet.sh [spec-dir]`, review strictly with the checklist in harness-judge.md, then record exactly one verdict with `bash .kiro/harness/record-verdict.sh PASS|FAIL \"reason\"` and explain it.",
+  "tools": ["read", "shell"],
+  "includeMcpJson": false,
+  "resources": [
+    "file://.kiro/steering/harness-judge.md",
+    "file://.kiro/steering/golden-paths.md"
+  ],
+  "permissions": {
+    "rules": [
+      { "capability": "shell", "match": ["bash .kiro/harness/judge-packet.sh*", "bash .kiro/harness/record-verdict.sh*", "git diff*", "git log*", "git show*", "git status*", "rg *", "grep *", "cat *", "ls*"], "effect": "allow" },
+      { "capability": "fs_write", "effect": "deny" },
+      { "capability": "web_fetch", "effect": "deny" },
+      { "capability": "web_search", "effect": "deny" }
+    ]
+  },
+  "welcomeMessage": "harness-judge ready (read-only). Say 'judge' or name the spec folder to review."
+}

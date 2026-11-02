@@ -1,0 +1,33 @@
+# Outer verification loop (Spotify listed this as future work: act on CI checks in PRs).
+# Runs the SAME verifiers the agent uses, on every PR. The setup agent must add the
+# toolchain steps for this project (marked TODO) based on `setup.sh detect`.
+name: harness-verify
+on:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # TODO(setup): toolchain for this project, e.g.
+      # - uses: actions/setup-java@v4
+      #   with: { distribution: temurin, java-version: "17" }
+      # - uses: actions/setup-node@v4
+      #   with: { node-version: "20" }
+
+      - name: Harness verify --full
+        run: bash .kiro/harness/verify.sh --full
+        env:
+          HARNESS_BASE: origin/${{ github.base_ref }}
+
+      - name: Upload verifier log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-verify-log
+          path: .kiro/harness/state/verify-last.log

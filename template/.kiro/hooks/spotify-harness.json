@@ -1,0 +1,43 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "harness-guard-shell",
+      "description": "Restricted git/bash + gate: no push/PR unless verify --full and an independent judge passed on the current tree.",
+      "trigger": "PreToolUse",
+      "matcher": "shell",
+      "action": { "type": "command", "command": "bash .kiro/harness/guard-shell.sh" },
+      "timeout": 30
+    },
+    {
+      "name": "harness-guard-write",
+      "description": "Harness files are read-only for the agent; records which sessions wrote code.",
+      "trigger": "PreToolUse",
+      "matcher": "write",
+      "action": { "type": "command", "command": "bash .kiro/harness/guard-write.sh" },
+      "timeout": 10
+    },
+    {
+      "name": "harness-quick-verify",
+      "description": "Inner loop: fast format/lint after every code edit, short output only.",
+      "trigger": "PostFileSave",
+      "matcher": "\\.(kt|kts|java|ts|tsx|js|jsx|py|go|rs|swift)$",
+      "action": { "type": "command", "command": "bash .kiro/harness/verify.sh --quick" },
+      "timeout": 120
+    },
+    {
+      "name": "harness-trace",
+      "description": "Append every tool call to .kiro/harness/state/trace.log.",
+      "trigger": "PostToolUse",
+      "action": { "type": "command", "command": "bash .kiro/harness/trace.sh" },
+      "timeout": 10
+    },
+    {
+      "name": "harness-stop-verify",
+      "description": "Like Spotify's stop hook: run every relevant verifier when the agent finishes a turn (cached if nothing changed).",
+      "trigger": "Stop",
+      "action": { "type": "command", "command": "bash .kiro/harness/verify.sh --full" },
+      "timeout": 900
+    }
+  ]
+}

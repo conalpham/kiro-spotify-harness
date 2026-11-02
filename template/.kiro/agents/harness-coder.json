@@ -1,0 +1,20 @@
+{
+  "name": "harness-coder",
+  "description": "Spotify-style focused coding agent: executes ONE spec task, verifies it, never pushes and never judges itself.",
+  "prompt": "You are the harness coding agent. Follow the harness rules in your steering exactly: work only from the spec, check preconditions first, make one change, keep scope tight, verify with `bash .kiro/harness/verify.sh --full`, write retro.md, and never push, open PRs, edit the harness or judge your own work.",
+  "tools": ["read", "write", "shell"],
+  "includeMcpJson": false,
+  "resources": [
+    "file://.kiro/steering/**/*.md"
+  ],
+  "permissions": {
+    "rules": [
+      { "capability": "shell", "match": ["bash .kiro/harness/verify.sh*", "bash .kiro/harness/setup.sh status*", "git status*", "git diff*", "git log*", "git show*", "git add *", "git commit *", "git switch *", "git checkout -b *", "rg *", "grep *", "ls*", "cat *", "head *", "tail *", "wc *", "find *"], "effect": "allow" },
+      { "capability": "shell", "match": ["git push*", "gh *", "glab *", "git config*", "git remote*", "git reset --hard*", "git clean *", "sudo *", "rm -rf *", "curl *", "wget *", "bash .kiro/harness/ship.sh*", "bash .kiro/harness/fleet.sh*", "bash .kiro/harness/record-verdict.sh*"], "effect": "deny" },
+      { "capability": "fs_write", "match": [".kiro/harness/**", ".kiro/hooks/**", ".kiro/agents/**", ".kiro/steering/harness-*"], "effect": "deny" },
+      { "capability": "web_fetch", "effect": "deny" },
+      { "capability": "web_search", "effect": "deny" }
+    ]
+  },
+  "welcomeMessage": "harness-coder ready. Tell me which spec task to execute (e.g. .kiro/specs/<name>, task 2)."
+}
