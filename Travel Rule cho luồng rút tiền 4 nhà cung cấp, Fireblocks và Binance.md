@@ -10,6 +10,8 @@ Khi khách rút tiền ra sàn khác, sàn của bạn là **sàn gửi** và ph
 2. Tích hợp qua Fireblocks, nếu sàn đang dùng Fireblocks để ký và gửi giao dịch.
 3. Cách Binance đang triển khai Travel Rule, và ảnh hưởng tới lệnh rút sang Binance.
 
+Cuối tài liệu có thêm ba phần tham khảo: dữ liệu IVMS101 (so sánh bản 2020 và 2023), phạm vi của cầu nối Sumsub sang GTR, và khuyến nghị nếu chỉ chọn một nhà cung cấp.
+
 Mọi luồng được mô tả bằng sơ đồ sequence. Tên API và trường dữ liệu lấy từ tài liệu công khai của từng bên; cần đối chiếu lại trước khi code.
 
 ### Bốn nhà cung cấp
@@ -684,6 +686,137 @@ Nhánh thứ hai vẫn chạy được, nhưng tiền bị treo phía Binance v�
 
 Chiều ngược lại (khách rút từ Binance về sàn bạn): khách phải chọn sàn nhận trong bảng hỏi của Binance. Nếu sàn bạn có trong danh sách VASP của GTR, dữ liệu sẽ tới qua callback. Nếu không có, khách thường phải nhập tay tên sàn, và sàn bạn không nhận được dữ liệu.
 
+## Dữ liệu IVMS101
+
+**IVMS101** (interVASP Messaging Standard 101) là chuẩn dữ liệu chung để mô tả người gửi và người nhận khi các sàn trao đổi Travel Rule. Chuẩn quy định sẵn cấu trúc, tên trường và định dạng, để mọi sàn và nhà cung cấp hiểu dữ liệu như nhau. Cả bốn nhà cung cấp và Fireblocks đều dùng chuẩn này.
+
+| Nhóm | Ví dụ trường |
+| --- | --- |
+| Người gửi (Originator) | Họ tên, địa chỉ ví hoặc số tài khoản, địa chỉ nhà, số giấy tờ (CCCD, hộ chiếu), mã khách hàng, ngày và nơi sinh |
+| Người nhận (Beneficiary) | Họ tên, địa chỉ ví |
+| Sàn gửi / sàn nhận | Tên pháp nhân, mã định danh (LEI, số đăng ký kinh doanh), quốc gia |
+
+Mỗi người được mô tả là cá nhân (`naturalPerson`) hoặc pháp nhân (`legalPerson`). Chuẩn định nghĩa đủ trường, còn mỗi khu vực pháp lý bắt buộc một tập con khác nhau. Ví dụ rút gọn:
+
+```json
+{
+  "originator": {
+    "originatorPersons": [{
+      "naturalPerson": {
+        "name": { "nameIdentifier": [{ "primaryIdentifier": "NGUYEN", "secondaryIdentifier": "VAN AN" }] },
+        "dateAndPlaceOfBirth": { "dateOfBirth": "1990-05-12", "placeOfBirth": "Ha Noi" }
+      }
+    }],
+    "accountNumber": ["0xAbc..."]
+  },
+  "beneficiary": {
+    "beneficiaryPersons": [{
+      "naturalPerson": {
+        "name": { "nameIdentifier": [{ "primaryIdentifier": "TRAN", "secondaryIdentifier": "THI BINH" }] }
+      }
+    }],
+    "accountNumber": ["0xDef..."]
+  }
+}
+```
+
+### IVMS101 (2020) và IVMS101.2023
+
+|  | IVMS101 (2020) | IVMS101.2023 |
+| --- | --- | --- |
+| Phát hành | 05/2020 | 08/2023 (nháp tham vấn 07/2023, công bố rộng 06/2024) |
+| Đơn vị duy trì | Joint Working Group on interVASP Messaging Standards | interVASP Standards Working Group (ISWG), thuộc Global Digital Finance |
+| Mã phiên bản `payloadVersion` | `101` | `101.2023` |
+| Bản chất | Bản gốc | Cập nhật dẫn xuất từ bản gốc: sửa lỗi, gỡ vướng mắc khi triển khai, bổ sung cải tiến |
+| Ai đang dùng | Phổ biến nhất; GTR dùng `ivms101-2020` | Đang áp dụng dần; Sumsub qua Fireblocks dùng `IVMS101.2023` |
+
+Bản 2023 nêu rõ các điểm sau:
+
+- `payloadVersion` bắt buộc, để bên nhận biết cách đọc gói dữ liệu.
+- Hướng dẫn chuyển tự chi tiết: dữ liệu UTF-8, chữ Latin là mặc định; tên bằng chữ không phải Latin phải chuyển tự hoặc gửi trong trường "local"; có bảng mã chữ viết theo ISO 15924.
+- Ràng buộc dữ liệu viết rõ hơn: ngày sinh ở quá khứ (`YYYY-MM-DD`), địa chỉ phải có `addressLine` hoặc tên đường kèm số nhà, LEI đúng 20 ký tự.
+- Có thêm ví dụ payload mẫu để kiểm thử.
+
+Bản 2023 không kèm danh sách thay đổi chính thức từng trường. Muốn so sánh chi tiết thì cần đặt hai bản chuẩn cạnh nhau (tải tại intervasp.org).
+
+**Ý nghĩa với sàn:**
+
+- Hai phiên bản không tương thích tự động; nhà cung cấp tự chuyển đổi giữa các bên. Sàn chỉ cần dựng dữ liệu đúng phiên bản nhà cung cấp của mình yêu cầu.
+- Bộ dựng IVMS101 nên nhận phiên bản làm tham số và sinh `filledFields` tự động, vì qua Fireblocks thì Sumsub dùng 2023 còn GTR dùng 2020.
+- Tên tiếng Việt dùng chữ Latin nên không cần chuyển tự, nhưng nên gửi dạng **không dấu, viết hoa** để sàn đích so khớp tên dễ đạt.
+
+## Sumsub qua cầu nối GTR tới được những sàn nào
+
+Qua cầu nối GTR của Sumsub, sàn với tới các **thành viên mạng GTR**. Trang chủ GTR hiện liệt kê 13 thành viên liên minh; 21 Analytics ghi nhận khoảng 30 VASP thành viên trực tiếp vào 12/2025, nên danh sách đầy đủ cần hỏi GTR hoặc Sumsub.
+
+| Thành viên GTR | Ghi chú |
+| --- | --- |
+| Binance | Mọi pháp nhân Binance trên thế giới |
+| OKX, Bybit, Bitget, Gate.io, BingX | Sàn giao dịch |
+| HashKey Exchange | Hồng Kông |
+| Ceffu | Đơn vị lưu ký, trước đây là Binance Custody |
+| Circle | Bên phát hành USDC; cũng thuộc TRUST |
+| CoinSwitch | Ấn Độ |
+| CoinTR | Thổ Nhĩ Kỳ |
+| DTC Pay, Paymonade | Thanh toán |
+
+**Mức độ đáp ứng chưa rõ.** Tài liệu của Sumsub đang nói hai kiểu:
+
+- Trang GTR protocol mô tả "challenge flow": chỉ áp dụng cho lệnh rút đi, chỉ so khớp **tên và ngày sinh đã băm** (Keccak-256), trả về `nameMatch` và `dobMatch`. Sumsub ghi rõ luồng này không được coi là giải pháp đáp ứng Travel Rule.
+- Trang danh sách protocol và trang luồng rút tiền lại coi GTR là kênh trao đổi dữ liệu như CODE và Sygna.
+
+Vì vậy, với lệnh rút tới Binance hay OKX qua Sumsub:
+
+- **Chắc chắn được:** xác thực tên người nhận có khớp với chủ ví ở sàn đích.
+- **Chưa chắc:** gói dữ liệu IVMS101 đầy đủ có tới sàn đích không. Nếu không, sàn đích có thể vẫn treo khoản nạp và bắt khách tự khai (như Binance đang làm), và có thể không đủ với khu vực bắt buộc truyền đủ dữ liệu như EU.
+
+**Cần hỏi Sumsub bằng văn bản:**
+
+1. Cầu nối GTR hiện truyền đủ dữ liệu IVMS101 hay chỉ chạy challenge flow?
+2. Lệnh rút tới Binance qua Sumsub có được Binance ghi có tự động, không cần khách khai bảng hỏi không?
+3. Danh sách đầy đủ VASP đang với tới được qua GTR?
+
+Nếu chỉ là challenge flow, đường chắc chắn hơn là kết nối GTR trực tiếp. Trên Fireblocks có thể bật cả Sumsub và GTR cùng lúc.
+
+## Nếu chỉ chọn một nhà cung cấp
+
+**Qua Fireblocks: chọn Sumsub. Không qua Fireblocks: chọn Sumsub nếu Binance và các sàn GTR chiếm phần lớn dòng rút, ngược lại chọn Notabene.** Hai bước cần làm trước khi chốt: thống kê dòng rút theo sàn đích trong 3–6 tháng gần nhất, và hỏi Sumsub về mức hỗ trợ GTR (phần trên).
+
+### Khi tích hợp qua Fireblocks
+
+- **Phủ rộng trong một lần tích hợp:** mạng \~2.100+ VASP, cầu nối GTR, CODE, Sygna, TRP, kèm email dự phòng.
+- **Không khoá đường mở rộng:** đây là điểm quyết định. Sumsub chạy chung được với GTR trên cùng workspace. Chọn Notabene thì không bao giờ bật được Sumsub hay GTR nữa.
+- **Dùng đúng luồng TRM chuẩn của Fireblocks:** Fireblocks giữ giao dịch cho tới khi có kết quả.
+- **Tận dụng được KYC** nếu sàn dùng Sumsub cho KYC.
+
+| Bên | Vì sao không chọn làm bên duy nhất trên Fireblocks |
+| --- | --- |
+| Notabene | Loại trừ hẳn Sumsub và GTR; không nối trực tiếp tới Binance (GTR) hay TRUST |
+| GTR | Chỉ khoảng 30 thành viên trực tiếp; sàn ngoài mạng chỉ còn đường email |
+| TRUST | Mạng đóng, phải qua thẩm định; trên Fireblocks chỉ ký bằng chứng sở hữu ví, không có screening |
+
+Nếu cầu nối GTR của Sumsub chỉ để xác thực **và** Binance cùng các sàn GTR chiếm phần lớn khối lượng, nên tính sẵn việc bật thêm GTR: cấu hình đích là Sumsub + GTR.
+
+### Khi tự tích hợp, không qua Fireblocks
+
+Không còn ràng buộc "một nhà cung cấp mỗi workspace", nên chọn bên nào trước cũng có thể nối thêm GTR trực tiếp về sau.
+
+| Tiêu chí | Sumsub | Notabene |
+| --- | --- | --- |
+| Tới Binance và sàn GTR | Có cầu nối GTR được công bố (mức độ cần xác nhận) | Chưa có xác nhận công khai về kết nối GTR |
+| Mạng lưới | \~2.100+ VASP | \~2.000+ VASP đã xác minh, tỷ lệ xử lý tự động \~85% |
+| Sàn đích chưa tích hợp | Gửi email, lưu bằng chứng | TR:Now: sàn đích phản hồi thủ công, không mất phí |
+| Giá | Không công khai, theo khối lượng | Gói Sunrise miễn phí (gửi tới 10.000 USD/tháng); trả phí theo khối lượng gửi đi |
+| KYC | Tái dùng hồ sơ KYC Sumsub | Chỉ làm Travel Rule, không ràng buộc vendor KYC |
+
+Gợi ý: Binance cùng các sàn GTR chiếm trên khoảng một nửa khối lượng rút thì chọn Sumsub; thấp hơn thì chọn Notabene, rồi nối thêm GTR trực tiếp khi cần. Ngưỡng một nửa là mốc gợi ý để dễ quyết định, không phải chuẩn ngành.
+
+Khi tự tích hợp, sàn phải tự làm những việc Fireblocks đang làm sẵn:
+
+- Khoá ký và broadcast ở tầng ký giao dịch, chỉ mở khi `APPROVED` hoặc `NOT_REQUIRED`.
+- Webhook (xác minh chữ ký, chống trùng), job đối soát, outbox retry với cùng `requestId`.
+- Báo txHash sau broadcast và huỷ khi khách bỏ lệnh.
+
 ## Nguồn tham khảo
 
 | Nhóm | Tài liệu |
@@ -694,3 +827,5 @@ Chiều ngược lại (khách rút từ Binance về sàn bạn): khách phải
 | TRUST | [Coinbase – TRUST](https://www.coinbase.com/travelrule) · [Expanding TRUST (05/2026)](https://www.coinbase.com/blog/expanding-trust-a-privacy-first-network-for-global-crypto-compliance) · [No-fee membership](https://www.coinbase.com/blog/trust-now-offering-no-fee-memberships-to-qualifying-members) · [Notabene – phân tích TRUST](https://notabene.id/travel-rule-messaging-protocols/ustrwg) · [21 Analytics – TRUST](https://www.21analytics.co/coinbase-trust/) |
 | Fireblocks | [Travel Rule Overview](https://developers.fireblocks.com/docs/travel-rule-overview.md) · [GTR](https://developers.fireblocks.com/docs/gtr.md) · [Sumsub](https://developers.fireblocks.com/docs/sumsub.md) · [Notabene](https://developers.fireblocks.com/docs/notabene.md) · [TRUST proof of address](https://developers.fireblocks.com/docs/interact-with-trust.md) · [Compliance Policies](https://developers.fireblocks.com/docs/compliance-policies.md) · [Compliance Events & Webhooks](https://developers.fireblocks.com/docs/compliance-events-webhooks.md) |
 | Binance | [Withdraw Questionnaire](https://developers.binance.com/docs/wallet/travel-rule/withdraw-questionnaire) · [Deposit Questionnaire](https://developers.binance.com/en/docs/products/wallet/travel-rule/deposit-questionnaire) · [21 Analytics – GTR, Binance Travel Rule](https://www.21analytics.co/glossary/gtr-binance-travel-rule/) · [Binance Ấn Độ (06/2026)](https://license.aiying.cc/en/india/binance-india-crypto-transfer-counterparty-reporting-travel-rule/) · [Binance Brazil (11/2026)](https://www.tokenpost.com/news/regulation/26387) · [Sumsub tích hợp với Binance qua GTR](https://thefintechtimes.com/sumsub-integrates-travel-rule-solution-with-binance/) |
+
+IVMS101: [IVMS 101.2023 – bản chính thức (PDF)](https://cdn.prod.website-files.com/648841abc97f28489cc3f2ce/6656e9c60c3029989dcd7431_IVMS101.2023%20interVASP%20data%20model%20standard.pdf) · [IVMS 101.2023 – bản nháp tham vấn (PDF)](https://www.gdf.io/wp-content/uploads/2020/12/IVMS101.2023-Working-Draft-For-Consultation.pdf) · [VASPnet – ISWG cập nhật IVMS101](https://vaspnet.com/articles/intervasp-standards-working-group-updates-global-language-vasps-use-to-communicate-mandated-travel-rule-data) · [interVASP Messaging](https://www.intervasp.org/) · [CODE – IVMS101](https://docs-en.codevasp.com/docs/ivms101) · [Sumsub – Protocols](https://docs.sumsub.com/docs/protocols)
