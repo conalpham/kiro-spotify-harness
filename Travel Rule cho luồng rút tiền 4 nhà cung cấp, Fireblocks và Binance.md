@@ -16,12 +16,14 @@ Mọi luồng được mô tả bằng sơ đồ sequence. Tên API và trườn
 
 ### Bốn nhà cung cấp
 
-| Nhà cung cấp | Bản chất | Mạng lưới | Giá |
+| Nhà cung cấp | Loại hình dịch vụ | Mạng lưới | Giá |
 | --- | --- | --- | --- |
 | Notabene | Vendor SaaS, đa protocol | \~2.000+ VASP, 100+ khu vực pháp lý | Gói miễn phí Sunrise (gửi tới 10.000 USD/tháng, nhận không giới hạn); trả phí theo khối lượng gửi đi |
 | Sumsub | Vendor SaaS (KYC + KYT + Travel Rule) | \~2.100+ VASP; cầu nối tới GTR, CODE, Sygna, TRP | Theo khối lượng, báo giá riêng; có gói Self-Service |
 | GTR | Protocol do Binance dẫn dắt | Mọi pháp nhân Binance, OKX, Bybit, Bitget, Gate, HashKey, Circle… | Trial 60 ngày, 100 request/ngày; gói Pro theo năm, báo giá riêng |
 | TRUST | Mạng đóng do Coinbase vận hành | \~195–200+ VASP: Coinbase, Kraken, Gemini, Crypto.com, Robinhood… | Chia chi phí giữa thành viên; miễn phí cho VASP nhỏ đủ điều kiện |
+
+Loại hình dịch vụ chia 4 bên thành hai nhóm, quyết định công tích hợp và phạm vi phủ. **Vendor SaaS** (Notabene, Sumsub): bán phần mềm, bạn là khách, gọi một API và họ lo việc tìm sàn đối tác, chọn protocol, nên một lần tích hợp phủ được nhiều mạng. **Mạng / protocol** (GTR, TRUST): bán tư cách thành viên, bạn tự mã hoá và dựng server, chỉ với tới thành viên trong mạng. Vì vậy khuyến nghị là ghép một vendor với một mạng (ví dụ Sumsub + GTR).
 
 ### Chọn kênh theo sàn đích
 
@@ -385,6 +387,104 @@ sequenceDiagram
 - Sàn đích ngoài mạng: dùng TRUSThub (ra mắt 05/2026) hoặc chuyển sang cổng chính.
 - 21 Analytics có kết nối TRUST sẵn, nhưng sàn vẫn phải tự xin làm thành viên.
 - Theo Notabene, nhiều thành viên chưa chạy TRUST thật. Nên đo tỷ lệ phản hồi theo từng sàn và hạ ưu tiên kênh này nếu tỷ lệ thấp.
+
+## Rút về ví cá nhân (unhosted wallet)
+
+Khi khách rút về ví tự quản (MetaMask, Ledger, Trezor…), **không có sàn đối tác để trao đổi dữ liệu**. Nghĩa vụ chuyển thành: tự thu thập và **lưu** thông tin người nhận với mọi giá trị, và tùy khu vực phải **xác minh khách sở hữu ví**. FATF coi giao dịch với ví cá nhân là rủi ro cao hơn. Dưới ngưỡng hay là ví cá nhân không có nghĩa là bỏ qua: vẫn phải ghi nhận và lưu vết.
+
+### Yêu cầu theo khu vực
+
+| Khu vực | Yêu cầu |
+| --- | --- |
+| EU (TFR) | Thu thập thông tin với mọi giá trị. Trên 1.000 EUR tới ví **của chính khách**: bắt buộc xác minh sở hữu, theo hướng dẫn EBA (ký thông điệp, micro-transfer…, ít nhất một cách). Ví của bên thứ ba kéo theo nghĩa vụ bổ sung |
+| Anh | Tiếp cận theo rủi ro; JMLSG chấp nhận micro-deposit và chữ ký mật mã |
+| Thụy Sĩ (FINMA) | Phải chứng minh sở hữu bằng phương tiện kỹ thuật phù hợp, **không có ngưỡng tối thiểu** |
+| Singapore (MAS) | Biện pháp tăng cường, không nêu ngưỡng |
+| Mỹ (FinCEN) | Ngưỡng 3.000 USD, thiên về lưu hồ sơ |
+
+Ngưỡng và phương pháp do khu vực cấp phép của sàn quyết định; cần pháp chế chốt trước khi cấu hình.
+
+### Bốn phương pháp chứng minh sở hữu ví
+
+| Phương pháp | Cách làm | Ưu | Nhược |
+| --- | --- | --- | --- |
+| Ký thông điệp | Khách ký thông điệp sàn đưa bằng private key của địa chỉ | Bằng chứng mật mã, không tốn phí | Không phải ví nào cũng ký được; khó với khách không rành |
+| Satoshi test (micro-transfer) | Khách gửi khoản nhỏ đúng số tiền định trước từ ví về địa chỉ sàn chỉ định | Bằng chứng on-chain khách quan | Tốn phí mạng, phải chờ xác nhận, cần tự động khớp giao dịch |
+| AOPP (21 Analytics) | Ví tương thích tự sinh và nộp bằng chứng trong vài giây | Tự động, không phí, 540+ ví (Trezor, Ledger, MetaMask) trên BTC, ETH, SOL, TRON… | Cần ví và đối tác hỗ trợ giao thức |
+| Ảnh chụp / tự khai | Khách chụp màn hình ví hoặc ký cam kết | Dễ nhất với khách | Dễ giả mạo, không chứng minh kiểm soát private key; Sumsub xếp loại không khuyến nghị; EU và Thụy Sĩ khó coi là đủ |
+
+Khuyến nghị: mặc định ký thông điệp, dự phòng Satoshi test cho ví không ký được; tự khai chỉ dùng nơi luật cho phép với giá trị nhỏ.
+
+### Luồng rút về ví cá nhân
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor KH as Khách
+    participant UI as App / Web
+    participant WS as Withdrawal service
+    participant TR as TravelRuleService
+    participant P as Kênh Travel Rule
+    participant CP as Compliance
+    participant SG as Wallet / Signer
+    KH->>UI: Nhập ví đích, chọn "Ví cá nhân" (hoặc không tìm thấy sàn nhận)
+    UI->>KH: Hỏi: ví của chính bạn hay của người khác? Tên người thụ hưởng?
+    KH->>UI: Trả lời
+    UI->>WS: Tạo lệnh rút
+    WS->>TR: Yêu cầu Travel Rule
+    TR->>P: Tạo bản ghi, đánh dấu unhosted (Notabene: NON_CUSTODIAL, Sumsub: counterpartyVaspNotFound)
+    TR->>TR: Xét ngưỡng theo khu vực (EU: hơn 1.000 EUR tới ví của chính khách)
+    alt Dưới ngưỡng hoặc khu vực không bắt buộc xác minh
+        TR->>TR: Lưu thông tin người nhận, APPROVED
+    else Phải xác minh sở hữu ví
+        TR->>TR: Kiểm tra cache ví đã xác minh (địa chỉ, mạng, memo/tag, userId)
+        alt Ví đã xác minh trước đó và còn hiệu lực
+            TR->>TR: APPROVED
+        else Chưa xác minh
+            TR-->>UI: Yêu cầu chứng minh sở hữu ví
+            alt Ký thông điệp (mặc định)
+                UI->>KH: Hiện thông điệp cần ký (MetaMask, Ledger, Trezor, WalletConnect)
+                KH->>UI: Chữ ký từ ví
+                UI->>TR: Gửi chữ ký
+                TR->>TR: Kiểm chữ ký khớp địa chỉ
+            else Satoshi test (ví không ký được)
+                KH->>KH: Gửi khoản nhỏ đúng số tiền định trước từ ví về địa chỉ sàn chỉ định
+                TR->>TR: Phát hiện giao dịch on-chain khớp số tiền và ví
+            else Tự khai hoặc ảnh chụp (chỉ nơi luật cho phép, giá trị nhỏ)
+                KH->>UI: Nộp cam kết hoặc ảnh
+                TR->>CP: Duyệt tay
+            end
+            alt Bằng chứng hợp lệ
+                TR->>P: Lưu bằng chứng (Notabene: beneficiaryProof, Sumsub: tự lưu, GTR: Wallet Verify)
+                TR->>TR: Cache ví đã xác minh, APPROVED
+            else Không hợp lệ hoặc quá hạn
+                TR->>CP: ON_HOLD, compliance quyết cho đi, giữ hay huỷ
+            end
+        end
+    end
+    opt APPROVED
+        WS->>SG: Ký và broadcast
+        SG-->>WS: txHash
+        WS->>TR: Gắn txHash, lưu hồ sơ kèm bằng chứng
+    end
+```
+
+### Từng nhà cung cấp hỗ trợ thế nào
+
+| Nhà cung cấp | Hỗ trợ |
+| --- | --- |
+| Sumsub | Luồng dựng sẵn hoàn chỉnh nhất: rule "Travel Rule: Unhosted wallet verification" tự kích hoạt khi không dò ra sàn; WebSDK cho khách ký bằng MetaMask, Ledger, Trezor, WalletConnect (BTC, ETH, SOL, TON, TRX, SUI) hoặc Satoshi test (hoàn tiền trừ phí mạng); kết quả qua webhook `applicantKytOnHold` → `applicantKytTxnApproved`; ví đã xác minh được lưu lại; có API/nút "mark as verified" cho compliance |
+| Notabene | Gửi bằng chứng trong `beneficiaryProof` khi `txCreate`: chữ ký mật mã, ảnh chụp, tự khai, hoặc micro-transfer. Giao dịch về ví cá nhân có `type: NON_CUSTODIAL` |
+| GTR | Wallet Verify API riêng, kết quả về qua callback 18 |
+| Fireblocks | Không tự xác minh hộ: `validate/full` chỉ báo `beneficiaryAddressType: UNHOSTED` để sàn chạy luồng chứng minh (hoặc dùng luồng của Sumsub nếu đi qua Fireblocks + Sumsub) |
+
+### Lưu ý thiết kế
+
+- Khoá broadcast vẫn ở tầng ký: chưa `APPROVED` (gồm cả bước chứng minh ví) thì không ký.
+- UI phân biệt rõ "ví của tôi" và "ví của người khác": ở EU hai trường hợp khác nghĩa vụ.
+- Cache ví đã xác minh theo (địa chỉ + mạng + memo/tag + userId), đặt hạn hiệu lực theo chính sách; memo khác tính là ví khác.
+- Lưu bằng chứng (chữ ký, txid của Satoshi test) vào hồ sơ Travel Rule để phục vụ thanh tra.
+- Chiều nạp từ ví cá nhân cũng cần luồng tương tự (Notabene: `txNotify` luôn trả `INCOMPLETE` với nạp từ ví cá nhân).
 
 ## Tích hợp qua Fireblocks
 
@@ -829,3 +929,5 @@ Khi tự tích hợp, sàn phải tự làm những việc Fireblocks đang làm
 | Binance | [Withdraw Questionnaire](https://developers.binance.com/docs/wallet/travel-rule/withdraw-questionnaire) · [Deposit Questionnaire](https://developers.binance.com/en/docs/products/wallet/travel-rule/deposit-questionnaire) · [21 Analytics – GTR, Binance Travel Rule](https://www.21analytics.co/glossary/gtr-binance-travel-rule/) · [Binance Ấn Độ (06/2026)](https://license.aiying.cc/en/india/binance-india-crypto-transfer-counterparty-reporting-travel-rule/) · [Binance Brazil (11/2026)](https://www.tokenpost.com/news/regulation/26387) · [Sumsub tích hợp với Binance qua GTR](https://thefintechtimes.com/sumsub-integrates-travel-rule-solution-with-binance/) |
 
 IVMS101: [IVMS 101.2023 – bản chính thức (PDF)](https://cdn.prod.website-files.com/648841abc97f28489cc3f2ce/6656e9c60c3029989dcd7431_IVMS101.2023%20interVASP%20data%20model%20standard.pdf) · [IVMS 101.2023 – bản nháp tham vấn (PDF)](https://www.gdf.io/wp-content/uploads/2020/12/IVMS101.2023-Working-Draft-For-Consultation.pdf) · [VASPnet – ISWG cập nhật IVMS101](https://vaspnet.com/articles/intervasp-standards-working-group-updates-global-language-vasps-use-to-communicate-mandated-travel-rule-data) · [interVASP Messaging](https://www.intervasp.org/) · [CODE – IVMS101](https://docs-en.codevasp.com/docs/ivms101) · [Sumsub – Protocols](https://docs.sumsub.com/docs/protocols)
+
+Ví cá nhân: [Mesh – Wallet ownership verification theo khu vực](https://www.meshpay.com/blog/wallet-ownership-verification-requirements-by-jurisdiction) · [21 Analytics – 4 phương pháp xác minh ví tự quản](https://www.21analytics.co/blog/unhosted-wallet-verification-methods-an-overview/) · [Sumsub – Unhosted wallet verification](https://docs.sumsub.com/docs/unhosted-wallet-verification) · [CryptoLawIndex – EU TFR theo nước thành viên](https://cryptolawindex.com/knowledge/eu-travel-rule-tfr-implementation-by-member-state-2026/)
